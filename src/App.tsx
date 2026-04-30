@@ -6,6 +6,7 @@ import AppLayout from './components/layout/AppLayout'
 import ExpenseFormPage from './components/expense/ExpenseFormPage'
 import AdminSettingsPage from './components/settings/AdminSettingsPage'
 import DashboardPage from './components/dashboard/DashboardPage'
+import ReportsPage from './components/reports/ReportsPage'
 
 export type PageName = 'Dashboard' | 'Expenses' | 'Reports' | 'Settings'
 
@@ -18,6 +19,8 @@ export default function App() {
         <AdminSettingsPage />
       ) : activePage === 'Dashboard' ? (
         <DashboardPage />
+      ) : activePage === 'Reports' ? (
+        <ReportsPage onNavigate={(p) => setActivePage(p as PageName)} />
       ) : (
         <ExpenseFormPage />
       )}

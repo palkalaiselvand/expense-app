@@ -12,7 +12,7 @@ import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined
 const PAGE_TITLES: Record<string, string> = {
   Dashboard: 'Employee Dashboard',
   Expenses: 'Expense Report',
-  Reports: 'My Reports',
+  Reports: 'Reports History',
   Insights: 'Analytics & Insights',
   Settings: 'Admin Settings',
 }
