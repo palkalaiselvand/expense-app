@@ -7,7 +7,7 @@ import ExpenseFormPage from './components/expense/ExpenseFormPage'
 import AdminSettingsPage from './components/settings/AdminSettingsPage'
 import DashboardPage from './components/dashboard/DashboardPage'
 
-export type PageName = 'Dashboard' | 'Expenses' | 'Reports' | 'Insights' | 'Settings'
+export type PageName = 'Dashboard' | 'Expenses' | 'Reports' | 'Settings'
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageName>('Dashboard')
@@ -16,7 +16,7 @@ export default function App() {
     <AppLayout activePage={activePage} onNavigate={(p) => setActivePage(p as PageName)}>
       {activePage === 'Settings' ? (
         <AdminSettingsPage />
-      ) : activePage === 'Dashboard' || activePage === 'Insights' ? (
+      ) : activePage === 'Dashboard' ? (
         <DashboardPage />
       ) : (
         <ExpenseFormPage />

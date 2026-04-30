@@ -13,7 +13,6 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
-import InsightsIcon from '@mui/icons-material/Insights'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import AddIcon from '@mui/icons-material/Add'
 
@@ -21,7 +20,6 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: <GridViewIcon fontSize="small" /> },
   { label: 'Expenses',  icon: <ReceiptLongIcon fontSize="small" /> },
   { label: 'Reports',   icon: <AssessmentOutlinedIcon fontSize="small" /> },
-  { label: 'Insights',  icon: <InsightsIcon fontSize="small" /> },
   { label: 'Settings',  icon: <SettingsOutlinedIcon fontSize="small" /> },
 ]
 
