@@ -76,7 +76,7 @@ export default function AppLayout({ children, activePage, onNavigate }: AppLayou
           ml: isMobile ? 0 : 0,
         }}
       >
-        <Header onMenuToggle={handleToggle} isMobile={isMobile} />
+        <Header onMenuToggle={handleToggle} isMobile={isMobile} activePage={activePage} />
 
         {/* Page content */}
         <Box

@@ -7,16 +7,21 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Avatar from '@mui/material/Avatar'
 import Divider from '@mui/material/Divider'
+import Button from '@mui/material/Button'
 import GridViewIcon from '@mui/icons-material/GridView'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import InsightsIcon from '@mui/icons-material/Insights'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import AddIcon from '@mui/icons-material/Add'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: <GridViewIcon fontSize="small" /> },
   { label: 'Expenses',  icon: <ReceiptLongIcon fontSize="small" /> },
   { label: 'Reports',   icon: <AssessmentOutlinedIcon fontSize="small" /> },
+  { label: 'Insights',  icon: <InsightsIcon fontSize="small" /> },
   { label: 'Settings',  icon: <SettingsOutlinedIcon fontSize="small" /> },
 ]
 
@@ -125,6 +130,44 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
         )})
         }
       </List>
+
+      {/* ── Actions ──────────────────────────────────────────────────────── */}
+      <Box sx={{ px: 2, pb: 1.5 }}>
+        <Button
+          fullWidth
+          variant="contained"
+          startIcon={<AddIcon sx={{ fontSize: '16px !important' }} />}
+          onClick={() => onNavigate('Expenses')}
+          sx={{
+            backgroundColor: '#10b981',
+            color: '#ffffff',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+            textTransform: 'none',
+            borderRadius: '8px',
+            py: 1,
+            mb: 1,
+            '&:hover': { backgroundColor: '#059669' },
+          }}
+        >
+          New Expense
+        </Button>
+        <Button
+          fullWidth
+          startIcon={<HelpOutlineIcon sx={{ fontSize: '15px !important' }} />}
+          sx={{
+            color: '#64748b',
+            fontSize: '0.8125rem',
+            textTransform: 'none',
+            borderRadius: '8px',
+            py: 0.75,
+            justifyContent: 'flex-start',
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)', color: '#94a3b8' },
+          }}
+        >
+          Help Center
+        </Button>
+      </Box>
 
       <Divider sx={{ borderColor: '#1e293b', mx: 2 }} />
 

@@ -4,17 +4,28 @@ import Typography from '@mui/material/Typography'
 import InputBase from '@mui/material/InputBase'
 import IconButton from '@mui/material/IconButton'
 import Box from '@mui/material/Box'
+import Avatar from '@mui/material/Avatar'
 import MenuIcon from '@mui/icons-material/Menu'
 import SearchIcon from '@mui/icons-material/Search'
 import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+
+const PAGE_TITLES: Record<string, string> = {
+  Dashboard: 'Employee Dashboard',
+  Expenses: 'Expense Report',
+  Reports: 'My Reports',
+  Insights: 'Analytics & Insights',
+  Settings: 'Admin Settings',
+}
 
 interface HeaderProps {
   onMenuToggle: () => void
   isMobile: boolean
+  activePage: string
 }
 
-export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
+export default function Header({ onMenuToggle, isMobile, activePage }: HeaderProps) {
+  const pageTitle = PAGE_TITLES[activePage] ?? activePage
+
   return (
     <AppBar
       position="sticky"
@@ -35,7 +46,7 @@ export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
         }}
       >
         {/* ── Left: hamburger (mobile) + page title ─────────────────────── */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
           {isMobile && (
             <IconButton
               size="small"
@@ -48,15 +59,14 @@ export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
           )}
           <Typography
             sx={{
-              fontWeight: 600,
-              fontSize: '0.6875rem',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: '#475569',
+              fontWeight: 700,
+              fontSize: '1rem',
+              letterSpacing: '-0.01em',
+              color: '#0f172a',
               whiteSpace: 'nowrap',
             }}
           >
-            Expense Report Submission
+            {pageTitle}
           </Typography>
         </Box>
 
@@ -82,8 +92,8 @@ export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
           />
         </Box>
 
-        {/* ── Right: action icons ────────────────────────────────────────── */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {/* ── Right: notification + user profile ────────────────────────── */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <IconButton
             size="small"
             sx={{
@@ -95,17 +105,40 @@ export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
           >
             <NotificationsOutlinedIcon sx={{ fontSize: 20 }} />
           </IconButton>
-          <IconButton
-            size="small"
+
+          {/* User profile */}
+          <Box
             sx={{
-              color: '#64748b',
-              borderRadius: '8px',
-              '&:hover': { backgroundColor: '#f1f5f9' },
+              display: { xs: 'none', sm: 'flex' },
+              alignItems: 'center',
+              gap: 1,
+              ml: 0.5,
+              pl: 1.5,
+              borderLeft: '1px solid #e2e8f0',
             }}
-            aria-label="Help"
           >
-            <HelpOutlineIcon sx={{ fontSize: 20 }} />
-          </IconButton>
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography
+                sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0f172a', lineHeight: 1.25 }}
+              >
+                Alex Thompson
+              </Typography>
+              <Typography sx={{ fontSize: '0.6875rem', color: '#64748b', lineHeight: 1.25 }}>
+                Product Designer
+              </Typography>
+            </Box>
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                backgroundColor: '#10b981',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+              }}
+            >
+              AT
+            </Avatar>
+          </Box>
         </Box>
       </Toolbar>
     </AppBar>
