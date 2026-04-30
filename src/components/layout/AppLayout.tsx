@@ -8,11 +8,13 @@ import Header from './Header'
 
 interface AppLayoutProps {
   children: React.ReactNode
+  activePage: string
+  onNavigate: (page: string) => void
 }
 
 const SIDEBAR_WIDTH = 240
 
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children, activePage, onNavigate }: AppLayoutProps) {
   const muiTheme = useTheme()
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -37,7 +39,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             },
           }}
         >
-          <Sidebar />
+          <Sidebar activePage={activePage} onNavigate={(p) => { onNavigate(p); handleClose() }} />
         </Drawer>
       ) : (
         <Box
@@ -57,7 +59,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               zIndex: (theme) => theme.zIndex.drawer,
             }}
           >
-            <Sidebar />
+            <Sidebar activePage={activePage} onNavigate={onNavigate} />
           </Box>
         </Box>
       )}

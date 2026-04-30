@@ -5,7 +5,7 @@ export type CategoryKey = 'Travel-Air' | 'Travel-Car' | 'Food' | 'Hotel' | 'Mobi
 export interface LineItem {
   id: string
   date: string           // YYYY-MM-DD (controlled input, may be empty)
-  category: CategoryKey | ''
+  category: string       // key from settings categories, may be empty
   merchant: string
   description: string
   amount: string         // string to allow partial input (e.g. "1.", "")
@@ -25,7 +25,7 @@ export interface LineItemErrors {
 export interface StoredLineItem {
   id: string
   date: string
-  category: CategoryKey
+  category: string
   merchant: string
   description: string
   amount: number

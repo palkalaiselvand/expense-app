@@ -14,13 +14,18 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', icon: <GridViewIcon fontSize="small" />, active: false },
-  { label: 'Expenses', icon: <ReceiptLongIcon fontSize="small" />, active: true },
-  { label: 'Reports', icon: <AssessmentOutlinedIcon fontSize="small" />, active: false },
-  { label: 'Settings', icon: <SettingsOutlinedIcon fontSize="small" />, active: false },
+  { label: 'Dashboard', icon: <GridViewIcon fontSize="small" /> },
+  { label: 'Expenses',  icon: <ReceiptLongIcon fontSize="small" /> },
+  { label: 'Reports',   icon: <AssessmentOutlinedIcon fontSize="small" /> },
+  { label: 'Settings',  icon: <SettingsOutlinedIcon fontSize="small" /> },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  activePage: string
+  onNavigate: (page: string) => void
+}
+
+export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
     <Box
       sx={{
@@ -71,20 +76,23 @@ export default function Sidebar() {
 
       {/* ── Navigation ───────────────────────────────────────────────────── */}
       <List sx={{ px: 1.5, flexGrow: 1, pt: 0.5 }}>
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.map((item) => {
+          const isActive = item.label === activePage
+          return (
           <ListItem key={item.label} disablePadding sx={{ mb: 0.25 }}>
             <ListItemButton
+              onClick={() => onNavigate(item.label)}
               sx={{
                 borderRadius: '8px',
-                backgroundColor: item.active ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                color: item.active ? '#10b981' : '#94a3b8',
+                backgroundColor: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                color: isActive ? '#10b981' : '#94a3b8',
                 py: 1.1,
                 px: 1.5,
                 '&:hover': {
-                  backgroundColor: item.active
+                  backgroundColor: isActive
                     ? 'rgba(16, 185, 129, 0.2)'
                     : 'rgba(255,255,255,0.05)',
-                  color: item.active ? '#10b981' : '#e2e8f0',
+                  color: isActive ? '#10b981' : '#e2e8f0',
                 },
                 transition: 'all 0.15s',
               }}
@@ -98,11 +106,11 @@ export default function Sidebar() {
                 primary={item.label}
                 primaryTypographyProps={{
                   fontSize: '0.875rem',
-                  fontWeight: item.active ? 600 : 400,
+                  fontWeight: isActive ? 600 : 400,
                   color: 'inherit',
                 }}
               />
-              {item.active && (
+              {isActive && (
                 <Box
                   sx={{
                     width: 6,
@@ -114,7 +122,8 @@ export default function Sidebar() {
               )}
             </ListItemButton>
           </ListItem>
-        ))}
+        )})
+        }
       </List>
 
       <Divider sx={{ borderColor: '#1e293b', mx: 2 }} />

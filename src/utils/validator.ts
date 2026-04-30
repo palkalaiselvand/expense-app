@@ -7,7 +7,15 @@ import {
   ALLOWED_FILE_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
 } from '../constants/expense'
-import type { CategoryKey, LineItem, LineItemErrors } from '../types/expense'
+import type { LineItem, LineItemErrors } from '../types/expense'
+
+/** Optional caller-provided validation context (from user settings). */
+export interface ValidationSettings {
+  /** Valid category keys — if provided, category must be one of these. */
+  validKeys?: string[]
+  /** Per-category spending limits map — overrides built-in CATEGORY_LIMITS. */
+  limitsMap?: Record<string, number>
+}
 
 interface ValidationResult {
   valid: boolean
@@ -22,14 +30,26 @@ export function validateDescription(value: string): ValidationResult {
   return { valid: true, message: '' }
 }
 
-export function validateCategory(value: string): ValidationResult {
+export function validateCategory(
+  value: string,
+  validKeys?: string[],
+): ValidationResult {
   if (!value) return { valid: false, message: 'Please select a category.' }
-  if (!(value in CATEGORY_LIMITS))
-    return { valid: false, message: 'Please select a valid category.' }
+  if (validKeys) {
+    if (!validKeys.includes(value))
+      return { valid: false, message: 'Please select a valid category.' }
+  } else {
+    if (!(value in CATEGORY_LIMITS))
+      return { valid: false, message: 'Please select a valid category.' }
+  }
   return { valid: true, message: '' }
 }
 
-export function validateAmount(value: string, category: string): ValidationResult {
+export function validateAmount(
+  value: string,
+  category: string,
+  limitsMap?: Record<string, number>,
+): ValidationResult {
   if (!value || value.trim() === '')
     return { valid: false, message: 'Amount is required.' }
   const num = parseFloat(value)
@@ -38,17 +58,18 @@ export function validateAmount(value: string, category: string): ValidationResul
   if (num <= 0)
     return { valid: false, message: 'Amount must be greater than $0.00.' }
   const rounded = Math.round(num * 100) / 100
-  if (category && category in CATEGORY_LIMITS) {
-    const limit = CATEGORY_LIMITS[category as CategoryKey]
+  const effectiveLimits: Record<string, number> =
+    limitsMap ?? (CATEGORY_LIMITS as Record<string, number>)
+  if (category && category in effectiveLimits) {
+    const limit = effectiveLimits[category]
     if (rounded > limit) {
       const formatted = limit.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
-      const label = category.replace('-', ' \u2013 ')
       return {
         valid: false,
-        message: `Amount exceeds the $${formatted} limit for ${label}.`,
+        message: `Amount exceeds the $${formatted} limit for this category.`,
       }
     }
   }
@@ -88,16 +109,19 @@ export function sanitizeFileName(file: File): string {
   return file.name.replace(/[/\\]/g, '').trim()
 }
 
-export function validateLineItem(item: LineItem): { valid: boolean; errors: LineItemErrors } {
+export function validateLineItem(
+  item: LineItem,
+  settings?: ValidationSettings,
+): { valid: boolean; errors: LineItemErrors } {
   const errors: LineItemErrors = {}
 
   const dateRes = validateDate(item.date)
   if (!dateRes.valid) errors.date = dateRes.message
 
-  const catRes = validateCategory(item.category)
+  const catRes = validateCategory(item.category, settings?.validKeys)
   if (!catRes.valid) errors.category = catRes.message
 
-  const amtRes = validateAmount(item.amount, item.category)
+  const amtRes = validateAmount(item.amount, item.category, settings?.limitsMap)
   if (!amtRes.valid) errors.amount = amtRes.message
 
   const descRes = validateDescription(item.description)
@@ -109,7 +133,10 @@ export function validateLineItem(item: LineItem): { valid: boolean; errors: Line
   return { valid: Object.keys(errors).length === 0, errors }
 }
 
-export function validateAllLineItems(items: LineItem[]): {
+export function validateAllLineItems(
+  items: LineItem[],
+  settings?: ValidationSettings,
+): {
   valid: boolean
   errors: Record<string, LineItemErrors>
 } {
@@ -117,7 +144,7 @@ export function validateAllLineItems(items: LineItem[]): {
   let allValid = true
 
   items.forEach((item) => {
-    const { valid, errors } = validateLineItem(item)
+    const { valid, errors } = validateLineItem(item, settings)
     if (!valid) {
       allErrors[item.id] = errors
       allValid = false

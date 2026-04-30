@@ -14,17 +14,14 @@ import InputAdornment from '@mui/material/InputAdornment'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import {
-  CATEGORY_LABELS,
-  CATEGORY_COLORS,
-  CATEGORY_LIMITS,
-} from '../../constants/expense'
-import type { CategoryKey, LineItem, LineItemErrors } from '../../types/expense'
+import type { LineItem, LineItemErrors } from '../../types/expense'
+import type { CategorySetting } from '../../types/settings'
 
 interface LineItemRowProps {
   item: LineItem
   index: number
   errors?: LineItemErrors
+  categories: CategorySetting[]
   onUpdate: (id: string, field: keyof LineItem, value: unknown) => void
   onRemove: (id: string) => void
   showRemove: boolean
@@ -37,6 +34,7 @@ function todayISO() {
 export default function LineItemRow({
   item,
   errors,
+  categories,
   onUpdate,
   onRemove,
   showRemove,
@@ -99,26 +97,28 @@ export default function LineItemRow({
                       Category
                     </Typography>
                   )
-                const key = val as CategoryKey
+                const cat = categories.find((c) => c.key === val)
+                const color = cat?.color ?? '#94a3b8'
+                const label = cat?.label ?? String(val)
                 return (
                   <Chip
-                    label={CATEGORY_LABELS[key]}
+                    label={label}
                     size="small"
                     sx={{
                       height: 22,
                       fontSize: '0.75rem',
                       fontWeight: 600,
-                      backgroundColor: CATEGORY_COLORS[key] + '1a',
-                      color: CATEGORY_COLORS[key],
-                      border: `1px solid ${CATEGORY_COLORS[key]}33`,
+                      backgroundColor: color + '1a',
+                      color,
+                      border: `1px solid ${color}33`,
                     }}
                   />
                 )
               }}
               sx={{ fontSize: '0.8125rem', backgroundColor: '#ffffff' }}
             >
-              {(Object.keys(CATEGORY_LABELS) as CategoryKey[]).map((key) => (
-                <MenuItem key={key} value={key}>
+              {categories.map((cat) => (
+                <MenuItem key={cat.key} value={cat.key}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -134,16 +134,16 @@ export default function LineItemRow({
                           width: 8,
                           height: 8,
                           borderRadius: '50%',
-                          backgroundColor: CATEGORY_COLORS[key],
+                          backgroundColor: cat.color,
                           flexShrink: 0,
                         }}
                       />
                       <Typography sx={{ fontSize: '0.875rem' }}>
-                        {CATEGORY_LABELS[key]}
+                        {cat.label}
                       </Typography>
                     </Box>
                     <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8', flexShrink: 0 }}>
-                      up to ${CATEGORY_LIMITS[key].toLocaleString()}
+                      up to ${cat.limit.toLocaleString()}
                     </Typography>
                   </Box>
                 </MenuItem>

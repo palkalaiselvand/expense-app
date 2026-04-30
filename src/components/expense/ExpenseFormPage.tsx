@@ -14,9 +14,9 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import type { LineItem, LineItemErrors } from '../../types/expense'
-import { MAX_LINE_ITEMS } from '../../constants/expense'
 import { validateAllLineItems } from '../../utils/validator'
 import { saveSubmission } from '../../utils/storage'
+import { loadSettings } from '../../utils/settings'
 import LineItemsTable from './LineItemsTable'
 import GlobalReceiptUpload from './GlobalReceiptUpload'
 import PolicyReminder from './PolicyReminder'
@@ -47,6 +47,14 @@ const FIELD_TO_ERROR_KEY: Partial<Record<keyof LineItem, keyof LineItemErrors>> 
 
 // ── component ─────────────────────────────────────────────────────────────────
 export default function ExpenseFormPage() {
+  // Load settings once on mount; re-reads on each page navigation
+  const [settings] = useState(() => loadSettings())
+  const validKeys = useMemo(() => settings.categories.map((c) => c.key), [settings])
+  const limitsMap = useMemo(
+    () => Object.fromEntries(settings.categories.map((c) => [c.key, c.limit])),
+    [settings],
+  )
+
   const [lineItems, setLineItems] = useState<LineItem[]>([createEmptyItem()])
   const [globalFiles, setGlobalFiles] = useState<File[]>([])
   const [billableToClient, setBillableToClient] = useState(false)
@@ -90,10 +98,10 @@ export default function ExpenseFormPage() {
 
   const handleAdd = useCallback(() => {
     setLineItems((prev) => {
-      if (prev.length >= MAX_LINE_ITEMS) return prev
+      if (prev.length >= settings.maxItemsPerReport) return prev
       return [...prev, createEmptyItem()]
     })
-  }, [])
+  }, [settings.maxItemsPerReport])
 
   const handleRemove = useCallback((id: string) => {
     setLineItems((prev) => prev.filter((item) => item.id !== id))
@@ -105,9 +113,15 @@ export default function ExpenseFormPage() {
 
   const doSave = (validate: boolean) => {
     if (validate) {
-      const { valid, errors: newErrors } = validateAllLineItems(lineItems)
+      const { valid, errors: newErrors } = validateAllLineItems(lineItems, { validKeys, limitsMap })
       if (!valid) {
         setErrors(newErrors)
+        return
+      }
+      if (runningTotal > settings.maxAmountPerReport) {
+        setStorageError(
+          `Total amount $${fmt(runningTotal)} exceeds the report maximum of $${fmt(settings.maxAmountPerReport)}.`,
+        )
         return
       }
     }
@@ -279,6 +293,8 @@ export default function ExpenseFormPage() {
           <LineItemsTable
             items={lineItems}
             errors={errors}
+            categories={settings.categories}
+            maxItems={settings.maxItemsPerReport}
             onUpdate={handleUpdate}
             onAdd={handleAdd}
             onRemove={handleRemove}

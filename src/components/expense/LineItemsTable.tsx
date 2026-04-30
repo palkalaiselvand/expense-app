@@ -10,11 +10,14 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import LineItemRow from './LineItemRow'
 import type { LineItem, LineItemErrors } from '../../types/expense'
+import type { CategorySetting } from '../../types/settings'
 import { MAX_LINE_ITEMS } from '../../constants/expense'
 
 interface LineItemsTableProps {
   items: LineItem[]
   errors: Record<string, LineItemErrors>
+  categories: CategorySetting[]
+  maxItems?: number
   onUpdate: (id: string, field: keyof LineItem, value: unknown) => void
   onAdd: () => void
   onRemove: (id: string) => void
@@ -23,11 +26,14 @@ interface LineItemsTableProps {
 export default function LineItemsTable({
   items,
   errors,
+  categories,
+  maxItems,
   onUpdate,
   onAdd,
   onRemove,
 }: LineItemsTableProps) {
-  const atMax = items.length >= MAX_LINE_ITEMS
+  const effectiveMax = maxItems ?? MAX_LINE_ITEMS
+  const atMax = items.length >= effectiveMax
   const hasErrors = Object.keys(errors).length > 0
 
   return (
@@ -59,6 +65,7 @@ export default function LineItemsTable({
                 item={item}
                 index={index}
                 errors={errors[item.id]}
+                categories={categories}
                 onUpdate={onUpdate}
                 onRemove={onRemove}
                 showRemove={items.length > 1}
@@ -96,7 +103,7 @@ export default function LineItemsTable({
 
         {atMax && (
           <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-            Maximum of {MAX_LINE_ITEMS} line items reached
+            Maximum of {effectiveMax} line items reached
           </Typography>
         )}
       </Box>
