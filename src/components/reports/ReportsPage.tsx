@@ -123,17 +123,6 @@ const TAB_STATUS: Record<TabValue, ReportStatus | null> = {
   approved: 'Approved', rejected: 'Rejected',
 }
 
-// Seed rows used when localStorage has no submissions
-const SEED: ReportRow[] = [
-  { id:'s1', name:'Q3 Client Travel - London',       submittedAt:'2023-10-24T10:00:00Z', itemCount:12, totalAmount:2450.80,  status:'Approved',       billableToClient:true  },
-  { id:'s2', name:'Tech Summit 2023 Sponsorship',     submittedAt:'2023-10-22T09:00:00Z', itemCount:3,  totalAmount:15000.00, status:'Pending Review', billableToClient:false },
-  { id:'s3', name:'Monthly Office Supplies - HQ',     submittedAt:'2023-10-18T08:00:00Z', itemCount:8,  totalAmount:842.15,   status:'Rejected',       billableToClient:false },
-  { id:'s4', name:'Developer Cloud Infrastructure',   submittedAt:'2023-10-15T14:00:00Z', itemCount:1,  totalAmount:3200.00,  status:'Approved',       billableToClient:false },
-  { id:'s5', name:'Employee Wellness Program',        submittedAt:'2023-10-12T11:00:00Z', itemCount:5,  totalAmount:2100.00,  status:'Draft',          billableToClient:false },
-  { id:'s6', name:'Air Travel - NY Conference',       submittedAt:'2023-10-09T13:00:00Z', itemCount:4,  totalAmount:1875.40,  status:'Approved',       billableToClient:true  },
-  { id:'s7', name:'Client Entertainment Q4',          submittedAt:'2023-10-05T09:30:00Z', itemCount:6,  totalAmount:980.00,   status:'Pending Review', billableToClient:true  },
-]
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -165,8 +154,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
     [submissions, settings.categories],
   )
 
-  const useSeed = allRealRows.length === 0
-  const baseRows: ReportRow[] = useSeed ? SEED : allRealRows
+  const baseRows: ReportRow[] = allRealRows
 
   // ── date range filter (one month selector) ────────────────────────────────
   const [filterYear, setFilterYear] = useState(today.getFullYear())
@@ -195,12 +183,10 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
   const filteredRows = useMemo(() => {
     let rows = baseRows
 
-    if (!useSeed) {
-      rows = rows.filter((r) => {
-        const d = new Date(r.submittedAt)
-        return d.getFullYear() === filterYear && d.getMonth() === filterMonth
-      })
-    }
+    rows = rows.filter((r) => {
+      const d = new Date(r.submittedAt)
+      return d.getFullYear() === filterYear && d.getMonth() === filterMonth
+    })
 
     const statusFilter = TAB_STATUS[tabValue]
     if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
@@ -216,7 +202,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
     }
 
     return rows
-  }, [baseRows, useSeed, filterYear, filterMonth, tabValue, searchQuery])
+  }, [baseRows, filterYear, filterMonth, tabValue, searchQuery])
 
   const paginatedRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
@@ -260,9 +246,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
   }, [filteredRows])
 
   const daysInMonth = new Date(filterYear, filterMonth + 1, 0).getDate()
-  const dateRangeLabel = useSeed
-    ? 'Oct 1 - Oct 31, 2023'
-    : `${MONTHS_SHORT[filterMonth]} 1 - ${MONTHS_SHORT[filterMonth]} ${daysInMonth}, ${filterYear}`
+  const dateRangeLabel = `${MONTHS_SHORT[filterMonth]} 1 - ${MONTHS_SHORT[filterMonth]} ${daysInMonth}, ${filterYear}`
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -333,7 +317,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
             </Typography>
             <Typography sx={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a',
                               lineHeight: 1.1, letterSpacing: '-0.02em', mb: 0.75 }}>
-              {fmt(useSeed ? 142580 : ytdApproved)}
+              {fmt(ytdApproved)}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TrendingUpIcon sx={{ fontSize: 14, color: '#10b981' }} />
@@ -364,7 +348,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
             </Typography>
             <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0f172a',
                               lineHeight: 1, letterSpacing: '-0.02em', mb: 0.75 }}>
-              {useSeed ? 24 : activeCount}
+              {activeCount}
             </Typography>
             <Typography sx={{ fontSize: '0.8125rem', color: '#64748b' }}>
               Awaiting approval or action
