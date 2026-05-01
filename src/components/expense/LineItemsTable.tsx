@@ -48,13 +48,18 @@ export default function LineItemsTable({
 
   return (
     <Box>
-      <TableContainer
+      <Box
         sx={{
           border: hasErrors ? '1px solid #fecaca' : '1px solid #e2e8f0',
           borderRadius: '10px',
-          overflow: 'auto',
           maxHeight: 420,
+          overflowY: 'auto',
           transition: 'border-color 0.15s',
+        }}
+      >
+      <TableContainer
+        sx={{
+          overflow: 'visible',
         }}
       >
         <Table size="small" sx={{ tableLayout: 'auto' }}>
@@ -85,6 +90,7 @@ export default function LineItemsTable({
           </TableBody>
         </Table>
       </TableContainer>
+      </Box>
 
       {/* ── Add line item ──────────────────────────────────────────────── */}
       <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, pl: 0.5 }}>
