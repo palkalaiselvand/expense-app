@@ -38,7 +38,13 @@ import CloseIcon from '@mui/icons-material/Close'
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
-import { loadSubmissions } from '../../utils/storage'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import { loadSubmissions, deleteSubmission } from '../../utils/storage'
 import { loadSettings } from '../../utils/settings'
 import type { Submission } from '../../types/expense'
 import type { CategorySetting } from '../../types/settings'
@@ -156,24 +162,29 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
 
   const baseRows: ReportRow[] = allRealRows
 
-  // ── date range filter (one month selector) ────────────────────────────────
+  // ── date range filter (one month selector, opt-in) ───────────────────────
   const [filterYear, setFilterYear] = useState(today.getFullYear())
   const [filterMonth, setFilterMonth] = useState(today.getMonth())
+  const [filterActive, setFilterActive] = useState(false)
 
   const [tabValue, setTabValue] = useState<TabValue>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(0)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+  const [menuRowId, setMenuRowId] = useState<string | null>(null)
+  const [deleteDlgOpen, setDeleteDlgOpen] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
 
   const handleSearchChange = useCallback((val: string) => { setSearchQuery(val); setPage(0) }, [])
 
   const prevMonth = () => {
+    setFilterActive(true)
     if (filterMonth === 0) { setFilterYear((y) => y - 1); setFilterMonth(11) }
     else setFilterMonth((m) => m - 1)
     setPage(0)
   }
   const nextMonth = () => {
+    setFilterActive(true)
     if (filterMonth === 11) { setFilterYear((y) => y + 1); setFilterMonth(0) }
     else setFilterMonth((m) => m + 1)
     setPage(0)
@@ -183,10 +194,12 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
   const filteredRows = useMemo(() => {
     let rows = baseRows
 
-    rows = rows.filter((r) => {
-      const d = new Date(r.submittedAt)
-      return d.getFullYear() === filterYear && d.getMonth() === filterMonth
-    })
+    if (filterActive) {
+      rows = rows.filter((r) => {
+        const d = new Date(r.submittedAt)
+        return d.getFullYear() === filterYear && d.getMonth() === filterMonth
+      })
+    }
 
     const statusFilter = TAB_STATUS[tabValue]
     if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
@@ -202,7 +215,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
     }
 
     return rows
-  }, [baseRows, filterYear, filterMonth, tabValue, searchQuery])
+  }, [baseRows, filterActive, filterYear, filterMonth, tabValue, searchQuery])
 
   const paginatedRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
@@ -228,7 +241,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
     [baseRows],
   )
 
-  // ── CSV export ────────────────────────────────────────────────────────────
+  // ── CSV export ───────────────────────────────────────────────────────────────
   const handleExportCSV = useCallback(() => {
     const rows = [
       ['Report Name', 'Date Submitted', 'Items', 'Total Amount (USD)', 'Status', 'Billable'],
@@ -245,8 +258,60 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
     URL.revokeObjectURL(url)
   }, [filteredRows])
 
+  // ── print report ────────────────────────────────────────────────────────────
+  const handlePrintReport = useCallback((row: ReportRow) => {
+    const sub = submissions.find((s) => s.id === row.id)
+    const itemsHtml = (sub?.lineItems ?? []).map((li) => `
+      <tr>
+        <td>${li.date || '—'}</td>
+        <td>${getCategoryLabel(li.category, settings.categories)}</td>
+        <td>${li.merchant || '—'}</td>
+        <td>${li.description || '—'}</td>
+        <td style="text-align:right">${fmt(li.amount)}</td>
+      </tr>`).join('')
+    const billable = row.billableToClient ? ' &nbsp;●&nbsp; <strong>Client Billable</strong>' : ''
+    const html = `<!DOCTYPE html><html><head><title>${row.name}</title>
+<style>body{font-family:Arial,sans-serif;margin:32px;color:#333}
+h1{font-size:1.25rem;color:#0f172a;margin-bottom:4px}
+.meta{color:#64748b;font-size:13px;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;margin-top:16px}
+th,td{padding:9px 12px;border:1px solid #e2e8f0;font-size:13px;text-align:left}
+th{background:#f8fafc;font-weight:700;color:#475569}
+tfoot td{font-weight:700;color:#0f172a}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700}
+.status-${row.status.toLowerCase().replace(' ','-')}{background:${
+  row.status==='Approved'?'#d1fae5;color:#059669':
+  row.status==='Rejected'?'#fee2e2;color:#dc2626':
+  row.status==='Pending Review'?'#e0e7ff;color:#6366f1':'#f1f5f9;color:#64748b'}}
+.footer{margin-top:28px;font-size:11px;color:#94a3b8}
+@media print{body{margin:0}}</style></head><body>
+<h1>${row.name}</h1>
+<p class="meta">Submitted: ${fmtDate(row.submittedAt)}${billable}
+ &nbsp;●&nbsp; Status: <span class="badge status-${row.status.toLowerCase().replace(' ','-')}">${row.status}</span></p>
+<table>
+<thead><tr><th>Date</th><th>Category</th><th>Merchant</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+<tbody>${itemsHtml}</tbody>
+<tfoot><tr><td colspan="4" style="text-align:right">Total</td><td style="text-align:right">${fmt(row.totalAmount)}</td></tr></tfoot>
+</table>
+<p class="footer">Generated by FincOrp Expense Manager on ${new Date().toLocaleString('en-US')}</p>
+</body></html>`
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close(); w.print() }
+  }, [submissions, settings.categories])
+
+  // ── delete report ──────────────────────────────────────────────────────────────
+  const handleDeleteConfirm = useCallback(() => {
+    if (!menuRowId) return
+    deleteSubmission(menuRowId)
+    setSubmissions(loadSubmissions())
+    setDeleteDlgOpen(false)
+    setMenuRowId(null)
+  }, [menuRowId])
+
   const daysInMonth = new Date(filterYear, filterMonth + 1, 0).getDate()
-  const dateRangeLabel = `${MONTHS_SHORT[filterMonth]} 1 - ${MONTHS_SHORT[filterMonth]} ${daysInMonth}, ${filterYear}`
+  const dateRangeLabel = filterActive
+    ? `${MONTHS_SHORT[filterMonth]} 1 – ${MONTHS_SHORT[filterMonth]} ${daysInMonth}, ${filterYear}`
+    : 'All Periods'
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -481,7 +546,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
               border: '1px solid #e2e8f0', borderRadius: '8px',
               height: 34, px: 0.75, backgroundColor: '#ffffff',
             }}>
-              <Tooltip title="Previous month">
+              <Tooltip title={filterActive ? 'Showing previous month' : 'Filter by month (go back)'}>
                 <IconButton size="small" onClick={prevMonth} sx={{ p: 0.25, color: '#64748b' }}>
                   <ChevronLeftIcon sx={{ fontSize: 16 }} />
                 </IconButton>
@@ -491,6 +556,14 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
                 <Typography sx={{ fontSize: '0.8125rem', color: '#475569', whiteSpace: 'nowrap', fontWeight: 500 }}>
                   {dateRangeLabel}
                 </Typography>
+                {filterActive && (
+                  <Tooltip title="Show all periods">
+                    <IconButton size="small" onClick={() => { setFilterActive(false); setPage(0) }}
+                      sx={{ p: 0.25, color: '#10b981', ml: 0.25 }}>
+                      <CloseIcon sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
               <Tooltip title="Next month">
                 <IconButton size="small" onClick={nextMonth} sx={{ p: 0.25, color: '#64748b' }}>
@@ -621,7 +694,7 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
                         <Tooltip title="Actions">
                           <IconButton
                             size="small"
-                            onClick={(e) => { setMenuAnchor(e.currentTarget) }}
+                            onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setMenuRowId(row.id) }}
                             sx={{ color: '#94a3b8', '&:hover': { color: '#475569', backgroundColor: '#f1f5f9' } }}
                           >
                             <MoreVertIcon sx={{ fontSize: 18 }} />
@@ -653,31 +726,66 @@ export default function ReportsPage({ onNavigate }: ReportsPageProps) {
         )}
       </Paper>
 
-      {/* Context menu */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
-        onClose={() => setMenuAnchor(null)}
+        onClose={() => { setMenuAnchor(null) }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         PaperProps={{
           elevation: 2,
-          sx: { borderRadius: '10px', minWidth: 160, border: '1px solid #f1f5f9' },
+          sx: { borderRadius: '10px', minWidth: 170, border: '1px solid #f1f5f9' },
         }}
       >
-        <MenuItem onClick={() => setMenuAnchor(null)} sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}>
-          <OpenInNewIcon sx={{ fontSize: 16, color: '#64748b' }} />
-          View Report
-        </MenuItem>
-        <MenuItem onClick={() => { handleExportCSV(); setMenuAnchor(null) }} sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}>
-          <DownloadOutlinedIcon sx={{ fontSize: 16, color: '#64748b' }} />
-          Download PDF
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => setMenuAnchor(null)} sx={{ fontSize: '0.875rem', gap: 1.5, py: 1, color: '#dc2626' }}>
-          Delete Report
-        </MenuItem>
+        {(() => {
+          const activeRow = baseRows.find((r) => r.id === menuRowId)
+          return [
+            <MenuItem key="view" onClick={() => { if (activeRow) handlePrintReport(activeRow); setMenuAnchor(null) }}
+              sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}>
+              <PrintOutlinedIcon sx={{ fontSize: 16, color: '#64748b' }} />
+              View / Print Report
+            </MenuItem>,
+            <MenuItem key="csv" onClick={() => { handleExportCSV(); setMenuAnchor(null) }}
+              sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}>
+              <DownloadOutlinedIcon sx={{ fontSize: 16, color: '#64748b' }} />
+              Download CSV
+            </MenuItem>,
+            <Divider key="divider" />,
+            <MenuItem key="delete" onClick={() => { setMenuAnchor(null); setDeleteDlgOpen(true) }}
+              sx={{ fontSize: '0.875rem', gap: 1.5, py: 1, color: '#dc2626' }}>
+              <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+              Delete Report
+            </MenuItem>,
+          ]
+        })()}
       </Menu>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDlgOpen} onClose={() => setDeleteDlgOpen(false)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', pb: 1 }}>
+          Delete Report?
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.875rem', color: '#475569' }}>
+            {(() => {
+              const r = baseRows.find((row) => row.id === menuRowId)
+              return r
+                ? <>Permanently delete <strong>{r.name}</strong> ({fmt(r.totalAmount)})? This action cannot be undone.</>
+                : 'This action cannot be undone.'
+            })()}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setDeleteDlgOpen(false)}
+            sx={{ textTransform: 'none', color: '#64748b', fontWeight: 600 }}>Cancel</Button>
+          <Button variant="contained" onClick={handleDeleteConfirm}
+            sx={{ textTransform: 'none', fontWeight: 700, backgroundColor: '#dc2626',
+              '&:hover': { backgroundColor: '#b91c1c' } }}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Pending approvals sticky banner ─────────────────────────────── */}
       {bannerVisible && pendingCount > 0 && (

@@ -36,13 +36,24 @@ export default function LineItemsTable({
   const atMax = items.length >= effectiveMax
   const hasErrors = Object.keys(errors).length > 0
 
+  // Prevent adding a new row while the last row's required fields are unfilled
+  const lastItem = items[items.length - 1]
+  const lastIncomplete =
+    !lastItem ||
+    !lastItem.date ||
+    !lastItem.category ||
+    !lastItem.merchant ||
+    !String(lastItem.amount).trim()
+  const addDisabled = atMax || lastIncomplete
+
   return (
     <Box>
       <TableContainer
         sx={{
           border: hasErrors ? '1px solid #fecaca' : '1px solid #e2e8f0',
           borderRadius: '10px',
-          overflow: 'hidden',
+          overflow: 'auto',
+          maxHeight: 420,
           transition: 'border-color 0.15s',
         }}
       >
@@ -81,7 +92,7 @@ export default function LineItemsTable({
           size="small"
           startIcon={<AddIcon sx={{ fontSize: '18px !important' }} />}
           onClick={onAdd}
-          disabled={atMax}
+          disabled={addDisabled}
           sx={{
             color: '#10b981',
             fontWeight: 500,
@@ -104,6 +115,11 @@ export default function LineItemsTable({
         {atMax && (
           <Typography variant="caption" sx={{ color: '#94a3b8' }}>
             Maximum of {effectiveMax} line items reached
+          </Typography>
+        )}
+        {!atMax && lastIncomplete && (
+          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+            Fill in the current row before adding another
           </Typography>
         )}
       </Box>

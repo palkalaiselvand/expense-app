@@ -18,7 +18,7 @@ export default function App() {
       {activePage === 'Settings' ? (
         <AdminSettingsPage />
       ) : activePage === 'Dashboard' ? (
-        <DashboardPage />
+        <DashboardPage onNavigate={(p) => setActivePage(p as PageName)} />
       ) : activePage === 'Reports' ? (
         <ReportsPage onNavigate={(p) => setActivePage(p as PageName)} />
       ) : (

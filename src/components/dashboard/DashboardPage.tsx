@@ -16,6 +16,12 @@ import InputAdornment from '@mui/material/InputAdornment'
 import InputBase from '@mui/material/InputBase'
 import Tooltip from '@mui/material/Tooltip'
 import Divider from '@mui/material/Divider'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
@@ -27,6 +33,9 @@ import BarChartIcon from '@mui/icons-material/BarChart'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import {
   BarChart,
   Bar,
@@ -36,7 +45,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-import { loadSubmissions } from '../../utils/storage'
+import { loadSubmissions, deleteSubmission } from '../../utils/storage'
 import { loadSettings } from '../../utils/settings'
 import type { Submission } from '../../types/expense'
 import type { CategorySetting } from '../../types/settings'
@@ -104,8 +113,23 @@ const STATUS_CONFIG: Record<StatusType, { label: string; color: string; dot: str
   pending:  { label: 'Pending',  color: '#f59e0b', dot: '#f59e0b' },
 }
 
+// -- types -------------------------------------------------------------------
+interface ActivityRow {
+  id: string
+  submissionId: string
+  date: string
+  merchant: string
+  category: string
+  amount: number
+  status: StatusType
+}
+
 // -- component -----------------------------------------------------------------
-export default function DashboardPage() {
+interface DashboardPageProps {
+  onNavigate?: (page: string) => void
+}
+
+export default function DashboardPage({ onNavigate }: DashboardPageProps) {
   // Load real data from localStorage each time the component mounts
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const settings = useMemo(() => loadSettings(), [])
@@ -117,6 +141,14 @@ export default function DashboardPage() {
   // search + pagination state
   const [searchQuery, setSearchQuery] = useState('')
   const [activityPage, setActivityPage] = useState(0)
+
+  // analysis dialog
+  const [analysisDlgOpen, setAnalysisDlgOpen] = useState(false)
+
+  // row action menu
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<null | HTMLElement>(null)
+  const [selectedActivity, setSelectedActivity] = useState<ActivityRow | null>(null)
+  const [deleteDlgOpen, setDeleteDlgOpen] = useState(false)
 
   const handleSearchChange = useCallback((val: string) => {
     setSearchQuery(val)
@@ -200,6 +232,7 @@ export default function DashboardPage() {
         .flatMap((s) =>
           s.lineItems.map((li) => ({
             id: `${s.id}-${li.id}`,
+            submissionId: s.id,
             date: li.date || s.submittedAt.slice(0, 10),
             merchant: li.merchant || 'Unknown merchant',
             category: li.category,
@@ -234,6 +267,68 @@ export default function DashboardPage() {
   }, [filteredActivity, activityPage])
 
   const hasNoData = submissions.length === 0
+
+  // category detail analysis (for dialog)
+  const categoryAnalysis = useMemo(() => {
+    const data: Record<string, { total: number; count: number }> = {}
+    submissions.forEach((s) =>
+      s.lineItems.forEach((li) => {
+        if (!data[li.category]) data[li.category] = { total: 0, count: 0 }
+        data[li.category].total += li.amount
+        data[li.category].count += 1
+      }),
+    )
+    const grand = Object.values(data).reduce((a, b) => a + b.total, 0)
+    return Object.entries(data)
+      .sort(([, a], [, b]) => b.total - a.total)
+      .map(([key, { total, count }]) => {
+        const cat = settings.categories.find((c) => c.key === key)
+        return {
+          key,
+          label: cat?.label ?? key,
+          color: cat?.color ?? '#94a3b8',
+          limit: cat?.limit ?? 0,
+          total,
+          count,
+          avg: count > 0 ? total / count : 0,
+          pct: grand > 0 ? Math.round((total / grand) * 100) : 0,
+          overBudget: cat?.limit ? total > cat.limit : false,
+        }
+      })
+  }, [submissions, settings.categories])
+
+  // handlers
+  const handlePrintActivity = useCallback((row: ActivityRow) => {
+    const catLabel = getCategoryLabel(row.category, settings.categories)
+    const html = `<!DOCTYPE html><html><head><title>Expense Item</title>
+<style>body{font-family:Arial,sans-serif;margin:30px;color:#333}
+h2{color:#0f172a;margin-bottom:4px}p.sub{margin:0 0 20px;color:#64748b;font-size:13px}
+table{border-collapse:collapse;width:100%;max-width:520px}
+td{padding:10px 14px;border:1px solid #e2e8f0;font-size:14px}
+td:first-child{background:#fafbfc;font-weight:600;width:140px}
+.amount{font-size:1.4rem;font-weight:800;color:#0f172a}
+.footer{margin-top:30px;font-size:11px;color:#94a3b8}</style></head><body>
+<h2>Expense Line Item</h2><p class="sub">Printed from FincOrp Expense Manager</p>
+<table>
+<tr><td>Date</td><td>${fmtDate(row.date)}</td></tr>
+<tr><td>Merchant</td><td>${row.merchant}</td></tr>
+<tr><td>Category</td><td>${catLabel}</td></tr>
+<tr><td>Amount</td><td class="amount">${fmt(row.amount)}</td></tr>
+<tr><td>Status</td><td>${STATUS_CONFIG[row.status].label}</td></tr>
+</table>
+<p class="footer">Generated on ${new Date().toLocaleString('en-US')}</p>
+</body></html>`
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close(); w.print() }
+  }, [settings.categories])
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!selectedActivity) return
+    deleteSubmission(selectedActivity.submissionId)
+    setSubmissions(loadSubmissions())
+    setDeleteDlgOpen(false)
+    setSelectedActivity(null)
+  }, [selectedActivity])
 
   // CSV download
   const handleDownloadCSV = useCallback(() => {
@@ -492,6 +587,7 @@ export default function DashboardPage() {
               <Divider sx={{ mt: 2.5, mb: 2 }} />
               <Button
                 fullWidth
+                onClick={() => setAnalysisDlgOpen(true)}
                 sx={{
                   color: '#10b981',
                   fontWeight: 600,
@@ -711,9 +807,19 @@ export default function DashboardPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" sx={{ color: '#94a3b8' }}>
-                          <MoreVertIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
+                        <Tooltip title="Actions">
+                          <IconButton
+                            size="small"
+                            sx={{ color: '#94a3b8', '&:hover': { color: '#475569', backgroundColor: '#f1f5f9' } }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRowMenuAnchor(e.currentTarget)
+                              setSelectedActivity(row)
+                            }}
+                          >
+                            <MoreVertIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   )
@@ -743,6 +849,149 @@ export default function DashboardPage() {
           </>
         )}
       </Paper>
+
+      {/* ── Row action menu ──────────────────────────────────────────────── */}
+      <Menu
+        anchorEl={rowMenuAnchor}
+        open={Boolean(rowMenuAnchor)}
+        onClose={() => setRowMenuAnchor(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{ elevation: 2, sx: { borderRadius: '10px', minWidth: 170, border: '1px solid #f1f5f9' } }}
+      >
+        <MenuItem
+          onClick={() => { if (selectedActivity) handlePrintActivity(selectedActivity); setRowMenuAnchor(null) }}
+          sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}
+        >
+          <PrintOutlinedIcon sx={{ fontSize: 16, color: '#64748b' }} />
+          Print as PDF
+        </MenuItem>
+        {selectedActivity?.status === 'pending' && (
+          <MenuItem
+            onClick={() => { setRowMenuAnchor(null); onNavigate?.('Expenses') }}
+            sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}
+          >
+            <EditOutlinedIcon sx={{ fontSize: 16, color: '#64748b' }} />
+            Edit Report
+          </MenuItem>
+        )}
+        <Divider />
+        <MenuItem
+          onClick={() => { setRowMenuAnchor(null); setDeleteDlgOpen(true) }}
+          sx={{ fontSize: '0.875rem', gap: 1.5, py: 1, color: '#dc2626' }}
+        >
+          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+          Delete
+        </MenuItem>
+      </Menu>
+
+      {/* ── Delete confirmation dialog ───────────────────────────────────── */}
+      <Dialog open={deleteDlgOpen} onClose={() => setDeleteDlgOpen(false)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', pb: 1 }}>
+          Delete Expense?
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.875rem', color: '#475569' }}>
+            This will permanently remove the submission containing{' '}
+            <strong>{selectedActivity?.merchant}</strong> ({fmt(selectedActivity?.amount ?? 0)}).
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setDeleteDlgOpen(false)}
+            sx={{ textTransform: 'none', color: '#64748b', fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleDeleteConfirm}
+            sx={{ textTransform: 'none', fontWeight: 700, backgroundColor: '#dc2626',
+              '&:hover': { backgroundColor: '#b91c1c' } }}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Category analysis dialog ─────────────────────────────────────── */}
+      <Dialog open={analysisDlgOpen} onClose={() => setAnalysisDlgOpen(false)} maxWidth="md" fullWidth
+        PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#0f172a',
+          borderBottom: '1px solid #f1f5f9', pb: 2 }}>
+          Detailed Category Analysis
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {categoryAnalysis.length === 0 ? (
+            <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <InboxOutlinedIcon sx={{ fontSize: 40, color: '#e2e8f0' }} />
+              <Typography sx={{ color: '#94a3b8', fontSize: '0.9rem' }}>No expense data yet</Typography>
+            </Box>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ '& th': { fontWeight: 700, color: '#64748b', fontSize: '0.75rem',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  borderBottom: '1px solid #f1f5f9', backgroundColor: '#fafbfc', py: 1.5 } }}>
+                  <TableCell sx={{ pl: 3 }}>Category</TableCell>
+                  <TableCell align="right">Total</TableCell>
+                  <TableCell align="right">Share</TableCell>
+                  <TableCell align="right">Transactions</TableCell>
+                  <TableCell align="right">Avg / Item</TableCell>
+                  <TableCell align="right" sx={{ pr: 3 }}>Budget</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {categoryAnalysis.map((cat) => (
+                  <TableRow key={cat.key}
+                    sx={{ '&:last-child td': { borderBottom: 'none' }, '&:hover': { backgroundColor: '#fafbfc' } }}>
+                    <TableCell sx={{ pl: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>{cat.label}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>{fmt(cat.total)}</Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Chip label={`${cat.pct}%`} size="small"
+                        sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700,
+                          backgroundColor: cat.color + '1a', color: cat.color,
+                          '& .MuiChip-label': { px: 1 } }} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography sx={{ fontSize: '0.875rem', color: '#475569' }}>{cat.count}</Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography sx={{ fontSize: '0.875rem', color: '#475569' }}>{fmt(cat.avg)}</Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ pr: 3 }}>
+                      {cat.limit > 0 ? (
+                        <Chip
+                          label={cat.overBudget ? `Over ${fmt(cat.limit)}` : `${fmt(cat.limit)} limit`}
+                          size="small"
+                          sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700,
+                            backgroundColor: cat.overBudget ? 'rgba(220,38,38,0.1)' : 'rgba(16,185,129,0.1)',
+                            color: cat.overBudget ? '#dc2626' : '#059669',
+                            '& .MuiChip-label': { px: 1 } }}
+                        />
+                      ) : (
+                        <Typography sx={{ fontSize: '0.8125rem', color: '#94a3b8' }}>—</Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setAnalysisDlgOpen(false)}
+            variant="contained"
+            sx={{ textTransform: 'none', fontWeight: 700, backgroundColor: '#10b981',
+              '&:hover': { backgroundColor: '#059669' } }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

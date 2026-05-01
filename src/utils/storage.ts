@@ -107,3 +107,16 @@ export function saveSubmission(
     }
   }
 }
+
+/** Delete a submission by id. Returns true if found and removed. */
+export function deleteSubmission(id: string): boolean {
+  try {
+    const existing = loadSubmissions()
+    const filtered = existing.filter((s) => s.id !== id)
+    if (filtered.length === existing.length) return false
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+    return true
+  } catch {
+    return false
+  }
+}
